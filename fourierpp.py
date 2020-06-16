@@ -145,7 +145,7 @@ class FourierPointProcess(torch.nn.Module):
         batch_size, seq_len, dsize = X.shape
         assert dsize == 1, "dsize = %d is not 1." % dsize
         # first mask for shifting zero-paddings to T
-        mask1      = (X[:, :, 0] <= 0).float()                            # [ batch_size, seq_len ]
+        mask1      = (X[:, :, 0] <= 0).float()                       # [ batch_size, seq_len ]
         X[:, :, 0] = X[:, :, 0].clone() + mask1 * T
         # calculate the integral
         nf    = self.Womg.shape[1]
@@ -201,7 +201,7 @@ def train(model, dataloader,
             avgloss.append(loss.item())
             loss.backward()             # gradient descent
             optimizer.step()            # update optimizer
-            if i % log_interval == 0:
+            if i % log_interval == 0 and i != 0:
                 print("[%s] Train batch: %d\tLoss: %.3f" % (arrow.now(), i, loss.item()))
                 # callback 
                 log_callback(model, dataloader)
