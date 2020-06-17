@@ -10,38 +10,9 @@ import matplotlib.pyplot as plt
 from dataloader import Dataloader4TemporalOnly
 from fourierpp import FourierPointProcess, train
 from stochlstm import StochasticLSTM, advtrain
+from utils import log_callback
 
 
-
-def log_callback(model, dataloader):
-    """callback function invoked at every log interval"""
-    # evaluation mode
-    model.eval()
-    
-    # kernel function evaluation
-    xi  = torch.from_numpy(np.zeros((100, 1))).float()                        # [ batch_size, dsize ]
-    xj  = torch.from_numpy(np.linspace(0, 10, num=100)).unsqueeze_(1).float() # [ batch_size, dsize ]
-    kij = model._fourier_kernel(xi, xj, nf=10000)                              # [ batch_size, 1 ]
-    kij = kij.detach().numpy()
-    plt.plot(kij)
-    plt.show()
-
-    # lambda function evaluation
-    T          = 10.
-    n_points   = 100
-    X = torch.from_numpy(np.linspace(0, T, num=n_points)).\
-        unsqueeze_(1).unsqueeze_(0).float()                 # [ 1, n_points, dsize ]
-    H = dataloader.data[0].unsqueeze_(0)                    # [ 1, seq_len, dsize ]
-    lam = []
-    for i in range(n_points):
-        xi = X[:, i, :].clone()                             # [ 1, dsize ] 
-        ht = H[(H > 0.) * (H < xi)]\
-            .unsqueeze_(1).unsqueeze_(0)                    # [ 1, seq_len < i, dsize ]
-        lami = model._lambda(xi, ht, nf=10000)
-        lam.append(lami.detach().numpy())
-    plt.plot(lam)
-    plt.show()
-            
 
 if __name__ == "__main__":
 
