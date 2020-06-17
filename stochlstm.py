@@ -154,11 +154,13 @@ def advtrain(generator, classifier, dataloader, seq_len=100, K=1,
     """
     goptimizer = optim.Adadelta(generator.parameters(), lr=glr)
     coptimizer = optim.Adadelta(classifier.parameters(), lr=clr)
+    recloglik, recloglikhat = [], []
     for e in range(n_epoch):
         avgloglik, avgloglikhat  = [], []
         logloglik, logloglikehat = [], []
-        dataloader.shuffle()
+        # dataloader.shuffle()
         for i in range(len(dataloader)):
+            dataloader.shuffle()
             # collect real and fake sequences
             X    = dataloader[i]                             # real sequences [ batch, seq_len1, dszie ]
             Xhat = generator(dataloader.batch_size, seq_len) # fake sequences [ batch, seq_len2, dszie ]
@@ -176,6 +178,9 @@ def advtrain(generator, classifier, dataloader, seq_len=100, K=1,
             # average log loss
             logloglik.append(exploglik.item())
             logloglikehat.append(exploglikhat.item())
+            # recording loss
+            recloglik.append(exploglik.item())
+            recloglikhat.append(exploglikhat.item())
 
             # train classifier
             classifier.train()        
@@ -205,6 +210,8 @@ def advtrain(generator, classifier, dataloader, seq_len=100, K=1,
             sum(avgloglik) / len(dataloader), 
             sum(avgloglikhat) / len(dataloader),
             sum(avgloglik) / len(dataloader) - sum(avgloglikhat) / len(dataloader)))
+        
+    return np.array(recloglik), np.array(recloglikhat)
 
 
 

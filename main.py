@@ -60,15 +60,15 @@ if __name__ == "__main__":
     # train(fpp, dl, n_epoch=10, log_interval=25, lr=1e-4, log_callback=log_callback)
 
     # learn fpp and slstm by adversarial learning
-    advtrain(slstm, fpp, dl, seq_len=50, K=10,
-        n_epoch=3, log_interval=20, glr=1e-2, clr=1e-4, 
+    recloglik, recloglikhat = advtrain(slstm, fpp, dl, seq_len=50, K=10,
+        n_epoch=2, log_interval=20, glr=1e-2, clr=1e-5, 
         log_callback=lambda x, y, z: None)
-
+    
+    np.save("loginfo/loglik.npy", recloglik)
+    np.save("loginfo/loglikhat.npy", recloglikhat)
 
     torch.save(fpp.state_dict(), "savedmodels/fpp.pt")
     torch.save(slstm.state_dict(), "savedmodels/slstm.pt")
 
     # fpp.load_state_dict(torch.load("savedmodels/fpp.pt"))
     # slstm.load_state_dict(torch.load("savedmodels/slstm.pt"))
-
-    
