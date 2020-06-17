@@ -126,16 +126,18 @@ class StochasticLSTM(torch.nn.Module):
         hy = outgate * torch.nn.functional.tanh(cy)
 
         return hy, cy
+
         
 
 
 if __name__ == "__main__":
-    
+
     batch_size = 2
     seq_len    = 10
     dsize      = 3
     hsize      = 5
 
     slstm = StochasticLSTM(dsize=dsize, hsize=hsize)
+    print(slstm(batch_size, seq_len))
     
         
