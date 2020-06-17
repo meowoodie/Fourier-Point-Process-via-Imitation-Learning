@@ -189,9 +189,9 @@ def train(model, dataloader,
     # NOTE: gradient for loss is expected to be None, 
     #       since it is not leaf node. (it's root node)
     optimizer = optim.Adadelta(model.parameters(), lr=lr)
-    logloss   = []
     for e in range(n_epoch):
         avgloss = []
+        logloss = []
         dataloader.shuffle()
         for i in range(len(dataloader)):
             X = dataloader[i]
@@ -204,7 +204,7 @@ def train(model, dataloader,
             loss.backward()             # gradient descent
             optimizer.step()            # update optimizer
             if i % log_interval == 0 and i != 0:
-                print("[%s] Train batch: %d\tLoss: %.3f" % (arrow.now(), i, sum( ) / log_interval))
+                print("[%s] Train batch: %d\tLoss: %.3f" % (arrow.now(), i, sum(logloss) / log_interval))
                 # callback 
                 log_callback(model, dataloader)
                 logloss = []

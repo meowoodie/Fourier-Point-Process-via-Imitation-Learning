@@ -55,11 +55,20 @@ if __name__ == "__main__":
     hsize = 10 # hidden state dimension
     fpp   = FourierPointProcess(nsize, fsize, dsize)
     slstm = StochasticLSTM(dsize, hsize)
-    
+
     # # learn fpp by MLE
     # train(fpp, dl, n_epoch=10, log_interval=25, lr=1e-4, log_callback=log_callback)
 
     # learn fpp and slstm by adversarial learning
-    advtrain(slstm, fpp, dl, seq_len=50, K=5,
-        n_epoch=10, log_interval=10, glr=1e-2, clr=1e-4, 
+    advtrain(slstm, fpp, dl, seq_len=50, K=10,
+        n_epoch=3, log_interval=20, glr=1e-2, clr=1e-4, 
         log_callback=lambda x, y, z: None)
+
+
+    torch.save(fpp.state_dict(), "savedmodels/fpp.pt")
+    torch.save(slstm.state_dict(), "savedmodels/slstm.pt")
+
+    # fpp.load_state_dict(torch.load("savedmodels/fpp.pt"))
+    # slstm.load_state_dict(torch.load("savedmodels/slstm.pt"))
+
+    

@@ -154,11 +154,11 @@ def advtrain(generator, classifier, dataloader, seq_len=100, K=1,
     """
     goptimizer = optim.Adadelta(generator.parameters(), lr=glr)
     coptimizer = optim.Adadelta(classifier.parameters(), lr=clr)
-    logloglik, logloglikehat = [], []
     for e in range(n_epoch):
-        avgloglik, avgloglikhat = [], []
+        avgloglik, avgloglikhat  = [], []
+        logloglik, logloglikehat = [], []
         dataloader.shuffle()
-        for i in range(int(len(dataloader)/2)):
+        for i in range(len(dataloader)):
             # collect real and fake sequences
             X    = dataloader[i]                             # real sequences [ batch, seq_len1, dszie ]
             Xhat = generator(dataloader.batch_size, seq_len) # fake sequences [ batch, seq_len2, dszie ]
