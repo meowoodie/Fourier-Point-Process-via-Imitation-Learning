@@ -192,7 +192,7 @@ def train(model, dataloader,
     for e in range(n_epoch):
         avgloss = []
         dataloader.shuffle()
-        for i in range(int(len(dataloader)/2)):
+        for i in range(len(dataloader)):
             X = dataloader[i]
             model.train()
             optimizer.zero_grad()       # init optimizer (set gradient to be zero)
