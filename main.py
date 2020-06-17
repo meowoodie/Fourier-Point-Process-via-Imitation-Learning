@@ -5,7 +5,6 @@ import arrow
 import torch
 import numpy as np
 import fourierpp as fpp
-import matplotlib.pyplot as plt
 
 from dataloader import Dataloader4TemporalOnly
 from fourierpp import FourierPointProcess, train
@@ -40,6 +39,3 @@ if __name__ == "__main__":
 
     torch.save(fpp.state_dict(), "savedmodels/fpp.pt")
     torch.save(slstm.state_dict(), "savedmodels/slstm.pt")
-
-    # fpp.load_state_dict(torch.load("savedmodels/fpp.pt"))
-    # slstm.load_state_dict(torch.load("savedmodels/slstm.pt"))
