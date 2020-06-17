@@ -4,6 +4,7 @@
 import arrow
 import torch
 import numpy as np
+import torch.optim as optim
 
 
 
@@ -127,7 +128,56 @@ class StochasticLSTM(torch.nn.Module):
 
         return hy, cy
 
+ 
+
+def advtrain(generator, classifier, dataloader, seq_len=100,
+    n_epoch=10, log_interval=10, lr=1e-4, log_callback=lambda x, y: None):
+    """
+    adversarial learning
+
+    NOTE: here we use stochastic LSTM as our generator and a point process based model as our classifier
+    """
+    goptimizer = optim.Adadelta(generator.parameters(), lr=lr)
+    coptimizer = optim.Adadelta(classifier.parameters(), lr=lr)
+    for e in range(n_epoch):
+        avgcloss, avggloss = [], []
+        dataloader.shuffle()
+        for i in range(int(len(dataloader)/2)):
+            # collect real and fake sequences
+            generator.eval()
+            X    = dataloader[i]                             # real sequences [ batch, seq_len1, dszie ]
+            Xhat = generator(dataloader.batch_size, seq_len) # fake sequences [ batch, seq_len2, dszie ]
+            Xhat = truncatebyT(Xhat)                         # truncate generated sequence by time horizon T
+
+            classifier.train()
+            coptimizer.zero_grad()                           # init optimizer (set gradient to be zero)
+            generator.train()
+            goptimizer.zero_grad()
+            
+            _, loglik    = classifier(X)                     # log-likelihood of real sequences [ batch ]
+            _, loglikhat = classifier(Xhat)                  # log-likelihood of real sequences [ batch ]
+
+            # train classifier
+            closs        = loglik.mean() - loglikhat.mean()  # log-likelihood discrepancy
+            avgcloss.append(closs.item())
+            closs.backward()                                 # gradient descent
+            coptimizer.step()                                # update optimizer
+            # train generator
+            gloss        = - closs                           # log-likelihood discrepancy
+            avggloss.append(gloss.item())
+            gloss.backward()                                 # gradient descent
+            goptimizer.step()                                # update optimizer
+
+            if i % log_interval == 0 and i != 0:
+                print("[%s] Train batch: %d\tgLoss: %.3f\tcLoss: %.3f" % \
+                    (arrow.now(), i, gcloss.item(), ccloss.item()))
+                # callback 
+                log_callback(generator, classifier, dataloader)
         
+        # log loss
+        print("[%s] Train epoch: %d\tAvg gLoss: %.3f\tAvg cLoss: %.3f" % \
+            (arrow.now(), e, sum(avggloss) / len(dataloader), sum(avgcloss) / len(dataloader)))
+
 
 
 if __name__ == "__main__":
