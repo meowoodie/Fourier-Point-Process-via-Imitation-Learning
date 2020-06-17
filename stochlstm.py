@@ -131,14 +131,14 @@ class StochasticLSTM(torch.nn.Module):
  
 
 def advtrain(generator, classifier, dataloader, seq_len=100,
-    n_epoch=10, log_interval=10, lr=1e-4, log_callback=lambda x, y: None):
+    n_epoch=10, log_interval=10, glr=1e-4, clr=1e-4, log_callback=lambda x, y, z: None):
     """
     adversarial learning
 
     NOTE: here we use stochastic LSTM as our generator and a point process based model as our classifier
     """
-    goptimizer = optim.Adadelta(generator.parameters(), lr=lr)
-    coptimizer = optim.Adadelta(classifier.parameters(), lr=lr)
+    goptimizer = optim.Adadelta(generator.parameters(), lr=glr)
+    coptimizer = optim.Adadelta(classifier.parameters(), lr=clr)
     for e in range(n_epoch):
         avgcloss, avggloss = [], []
         dataloader.shuffle()
