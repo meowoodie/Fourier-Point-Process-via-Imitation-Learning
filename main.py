@@ -20,7 +20,7 @@ def log_callback(model, dataloader):
     # kernel function evaluation
     xi  = torch.from_numpy(np.zeros((100, 1))).float()                        # [ batch_size, dsize ]
     xj  = torch.from_numpy(np.linspace(0, 10, num=100)).unsqueeze_(1).float() # [ batch_size, dsize ]
-    kij = model._fourier_kernel(xi, xj, nf=1000)                              # [ batch_size, 1 ]
+    kij = model._fourier_kernel(xi, xj, nf=10000)                              # [ batch_size, 1 ]
     kij = kij.detach().numpy()
     plt.plot(kij)
     plt.show()
@@ -36,7 +36,7 @@ def log_callback(model, dataloader):
         xi = X[:, i, :].clone()                             # [ 1, dsize ] 
         ht = H[(H > 0.) * (H < xi)]\
             .unsqueeze_(1).unsqueeze_(0)                    # [ 1, seq_len < i, dsize ]
-        lami = model._lambda(xi, ht, nf=1000)
+        lami = model._lambda(xi, ht, nf=10000)
         lam.append(lami.detach().numpy())
     plt.plot(lam)
     plt.show()
@@ -51,4 +51,4 @@ if __name__ == "__main__":
     nsize, fsize, dsize = 10, 20, 1
     fpp = FourierPointProcess(nsize, fsize, dsize)
         
-    train(fpp, dl, n_epoch=10, log_interval=50, lr=1e-4, log_callback=log_callback)
+    train(fpp, dl, n_epoch=10, log_interval=25, lr=1e-4, log_callback=log_callback)
