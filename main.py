@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 
 from dataloader import Dataloader4TemporalOnly
 from fourierpp import FourierPointProcess, train
+from stochlstm import StochasticLSTM, advtrain
 
 
 
@@ -48,7 +49,17 @@ if __name__ == "__main__":
 
     dl = Dataloader4TemporalOnly(path="data/hawkes_data.npy", batch_size=50)
 
-    nsize, fsize, dsize = 10, 20, 1
-    fpp = FourierPointProcess(nsize, fsize, dsize)
-        
-    train(fpp, dl, n_epoch=10, log_interval=25, lr=1e-4, log_callback=log_callback)
+    nsize = 10 # noise dimension
+    fsize = 20 # fourier feature dimension
+    dsize = 1  # data dimension
+    hsize = 10 # hidden state dimension
+    fpp   = FourierPointProcess(nsize, fsize, dsize)
+    slstm = StochasticLSTM(dsize, hsize)
+    
+    # # learn fpp by MLE
+    # train(fpp, dl, n_epoch=10, log_interval=25, lr=1e-4, log_callback=log_callback)
+
+    # learn fpp and slstm by adversarial learning
+    advtrain(slstm, fpp, dl, seq_len=50, K=5,
+        n_epoch=10, log_interval=10, glr=1e-2, clr=1e-4, 
+        log_callback=lambda x, y, z: None)

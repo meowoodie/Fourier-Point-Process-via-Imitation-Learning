@@ -118,19 +118,34 @@ class StochasticLSTM(torch.nn.Module):
 
         ingate, forgetgate, cellgate, outgate = gates.chunk(4, 1) # [ batch_size, hsize ]
 
-        ingate     = torch.nn.functional.sigmoid(ingate)          # [ batch_size, hsize ]
-        forgetgate = torch.nn.functional.sigmoid(forgetgate)      # [ batch_size, hsize ]
-        cellgate   = torch.nn.functional.tanh(cellgate)           # [ batch_size, hsize ]
-        outgate    = torch.nn.functional.sigmoid(outgate)         # [ batch_size, hsize ]
+        ingate     = torch.sigmoid(ingate)          # [ batch_size, hsize ]
+        forgetgate = torch.sigmoid(forgetgate)      # [ batch_size, hsize ]
+        cellgate   = torch.tanh(cellgate)           # [ batch_size, hsize ]
+        outgate    = torch.sigmoid(outgate)         # [ batch_size, hsize ]
 
         cy = (forgetgate * cx) + (ingate * cellgate)
-        hy = outgate * torch.nn.functional.tanh(cy)
+        hy = outgate * torch.tanh(cy)
 
         return hy, cy
 
+
+
+def truncatebyT(X, T=10.):
+    """
+    truncate sequences by time horizon T
+
+    Args:
+    - X: input sequences where the first dimension represents time [ batch_size, seq_len, dsize ]
+    """
+    dsize      = X.shape[-1]
+    X[:, :, 0] = torch.cumsum(X[:, :, 0].clone(), dim=1)                    # [ batch_size, seq_len ]
+    mask       = (X[:, :, 0].clone() < T).unsqueeze_(2).repeat(1, 1, dsize) # [ batch_size, seq_len, dsize ]
+    X          = X * mask                                                   # [ batch_size, seq_len, dsize ]
+    return X
  
 
-def advtrain(generator, classifier, dataloader, seq_len=100,
+
+def advtrain(generator, classifier, dataloader, seq_len=100, K=1,
     n_epoch=10, log_interval=10, glr=1e-4, clr=1e-4, log_callback=lambda x, y, z: None):
     """
     adversarial learning
@@ -139,44 +154,57 @@ def advtrain(generator, classifier, dataloader, seq_len=100,
     """
     goptimizer = optim.Adadelta(generator.parameters(), lr=glr)
     coptimizer = optim.Adadelta(classifier.parameters(), lr=clr)
+    logloglik, logloglikehat = [], []
     for e in range(n_epoch):
-        avgcloss, avggloss = [], []
+        avgloglik, avgloglikhat = [], []
         dataloader.shuffle()
         for i in range(int(len(dataloader)/2)):
             # collect real and fake sequences
-            generator.eval()
             X    = dataloader[i]                             # real sequences [ batch, seq_len1, dszie ]
             Xhat = generator(dataloader.batch_size, seq_len) # fake sequences [ batch, seq_len2, dszie ]
             Xhat = truncatebyT(Xhat)                         # truncate generated sequence by time horizon T
-
-            classifier.train()
-            coptimizer.zero_grad()                           # init optimizer (set gradient to be zero)
-            generator.train()
-            goptimizer.zero_grad()
             
             _, loglik    = classifier(X)                     # log-likelihood of real sequences [ batch ]
             _, loglikhat = classifier(Xhat)                  # log-likelihood of real sequences [ batch ]
+            exploglik    = loglik.mean()
+            exploglikhat = loglikhat.mean()
+            closs        = exploglikhat - exploglik          # log-likelihood discrepancy
+            gloss        = exploglik - exploglikhat          # log-likelihood discrepancy
+            # average epoch loss 
+            avgloglik.append(exploglik.item())
+            avgloglikhat.append(exploglikhat.item())
+            # average log loss
+            logloglik.append(exploglik.item())
+            logloglikehat.append(exploglikhat.item())
 
             # train classifier
-            closs        = loglik.mean() - loglikhat.mean()  # log-likelihood discrepancy
-            avgcloss.append(closs.item())
-            closs.backward()                                 # gradient descent
+            classifier.train()        
+            coptimizer.zero_grad()   
+            closs.backward(retain_graph=True)                # gradient descent
             coptimizer.step()                                # update optimizer
             # train generator
-            gloss        = - closs                           # log-likelihood discrepancy
-            avggloss.append(gloss.item())
-            gloss.backward()                                 # gradient descent
-            goptimizer.step()                                # update optimizer
+            for k in range(K):
+                generator.train()
+                goptimizer.zero_grad()
+                gloss.backward(retain_graph=True)                # gradient descent
+                goptimizer.step()                                # update optimizer
 
             if i % log_interval == 0 and i != 0:
-                print("[%s] Train batch: %d\tgLoss: %.3f\tcLoss: %.3f" % \
-                    (arrow.now(), i, gcloss.item(), ccloss.item()))
+                print("[%s] Train batch: %d\tLoglik: %.3f\tLoglik hat: %.3f\tdiff: %.3f" % \
+                    (arrow.now(), i, 
+                    sum(logloglik) / log_interval, 
+                    sum(logloglikehat) / log_interval, 
+                    sum(logloglik) / log_interval - sum(logloglikehat) / log_interval))
                 # callback 
                 log_callback(generator, classifier, dataloader)
+                logloglik, logloglikehat = [], []
         
         # log loss
-        print("[%s] Train epoch: %d\tAvg gLoss: %.3f\tAvg cLoss: %.3f" % \
-            (arrow.now(), e, sum(avggloss) / len(dataloader), sum(avgcloss) / len(dataloader)))
+        print("[%s] Train epoch: %d\tAvg Loglik: %.3f\tAvg loglik hat: %.3f\tdiff: %.3f" % \
+            (arrow.now(), e, 
+            sum(avgloglik) / len(dataloader), 
+            sum(avgloglikhat) / len(dataloader),
+            sum(avgloglik) / len(dataloader) - sum(avgloglikhat) / len(dataloader)))
 
 
 
@@ -188,6 +216,6 @@ if __name__ == "__main__":
     hsize      = 5
 
     slstm = StochasticLSTM(dsize=dsize, hsize=hsize)
-    print(slstm(batch_size, seq_len))
-    
-        
+    seqs  = slstm(batch_size, seq_len)
+    print(seqs)
+    print(truncatebyT(seqs))
