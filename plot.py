@@ -10,19 +10,19 @@ import matplotlib.pyplot as plt
 from dataloader import Dataloader4TemporalOnly
 from fourierpp import FourierPointProcess, train
 from stochlstm import StochasticLSTM, advtrain, truncatebyT
-from utils import evaluate_kernel, evaluate_lambda, evaluate_loglik
+from utils import evaluate_kernel, evaluate_lambda, evaluate_loglik, random_seqs
 
 from matplotlib.patches import Polygon
 from matplotlib.backends.backend_pdf import PdfPages
 
 def visualize_training_iterations(rloglik, floglik):
+
     n  = len(floglik)
     x  = list(range(n))
     yr = rloglik
     yf = floglik
 
     plt.rc('text', usetex=True)
-    # plt.rc("font", family="serif")
     font = {
         'family' : 'serif',
         'weight' : 'bold',
@@ -32,7 +32,6 @@ def visualize_training_iterations(rloglik, floglik):
         fig, ax = plt.subplots()
         plt.plot(x, yr, 'r', linewidth=2)
         plt.plot(x, yf, 'b', linewidth=2)
-        plt.ylim(ymin=0)
 
         # Make the shaded region
         ix    = list(range(n))
@@ -46,24 +45,54 @@ def visualize_training_iterations(rloglik, floglik):
         ax.add_patch(poly)
 
         hloc  = 0.8 * n
-        vloc  = 150 # (max(yr) + max(yf))/2
+        vloc  = (max(yr) + max(yf))/2
         plt.text(hloc, vloc, r"$J(\theta_0; \theta_1)$",
                 horizontalalignment='center', fontsize=20)
-
-        # plt.figtext(0.9, 0.05, '$x$')
-        # plt.figtext(0.1, 0.9, '$y$')
 
         ax.spines['right'].set_visible(False)
         ax.spines['top'].set_visible(False)
         plt.xlabel("iteration")
         plt.ylabel(r"log-likelihood $\ell$")
-        # ax.xaxis.set_ticks_position('bottom')
-
-        # ax.set_xticks((a, b))
-        # ax.set_xticklabels(('$a$', '$b$'))
-        # ax.set_yticks([])
 
         fig.tight_layout()  # otherwise the right y-label is slightly clipped
+        pdf.savefig(fig)
+
+
+
+def visualize_detection_statistics(clf, rseq, fseq, seq_len=30):
+
+    rloglik, rmask = evaluate_loglik(clf, rseq, T=10., nf=1000)  # [ batch_size, seq_len ]
+    floglik, fmask = evaluate_loglik(clf, fseq, T=10., nf=1000)  # [ batch_size, seq_len ]
+
+    rloglik = rloglik / np.arange(dl.seq_len)
+    floglik = floglik / np.arange(50)
+    rm      = rloglik.mean(0)[:seq_len]
+    fm      = floglik.mean(0)[:seq_len]
+    rc      = 1 * np.std(rloglik, axis=0)[:seq_len]
+    fc      = 1 * np.std(floglik, axis=0)[:seq_len]
+    rx      = np.arange(dl.seq_len)[:seq_len]
+    fx      = np.arange(50)[:seq_len]
+
+    plt.rc('text', usetex=True)
+    font = {
+        'family' : 'serif',
+        'weight' : 'bold',
+        'size'   : 15}
+    plt.rc('font', **font)
+    with PdfPages("result/detection-stats.pdf") as pdf:
+        fig, ax = plt.subplots()
+        ax.plot(rx, rm, c="r", linewidth=2, linestyle="--", label="mean for anomalous event")
+        ax.plot(fx, fm, c="b", linewidth=2, linestyle="--", label="mean for normal event")
+        ax.axhline(y=-15, linewidth=2, linestyle=":", color='g', label=r"$\eta$ detection threshold")
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+        ax.fill_between(rx, (rm-rc), (rm+rc), color='r', alpha=.1, label=r"$1\sigma$ region for anomalous event")
+        ax.fill_between(fx, (fm-fc), (fm+fc), color='b', alpha=.1, label=r"$1\sigma$ region for normal event")
+        plt.xlabel(r"$j$-th event")
+        plt.ylabel(r"detection statistics $\ell(x_{1:j};\theta_0)/j$")
+        plt.legend(loc='lower right')
+        fig.tight_layout()  # otherwise the right y-label is slightly clipped
+        plt.show()
         pdf.savefig(fig)
 
 
@@ -76,7 +105,7 @@ if __name__ == "__main__":
     nsize = 10 # noise dimension
     fsize = 20 # fourier feature dimension
     dsize = 1  # data dimension
-    hsize = 10 # hidden state dimension
+    hsize = 50 # hidden state dimension
     fpp   = FourierPointProcess(nsize, fsize, dsize)
     slstm = StochasticLSTM(dsize, hsize)
 
@@ -100,20 +129,12 @@ if __name__ == "__main__":
     slstm.load_state_dict(torch.load("savedmodels/slstm.pt"))
 
     # loglikelihood trajectories evaluation
-    rseq        = dl.data[:100, :15]                          # [ batch_size, seq_len, dsize ]
-    # fseq        = slstm(batch_size=100, seq_len=15)           # [ batch_size, seq_len, dsize ]
-    # fseq        = truncatebyT(fseq)
-    fseq        = torch.FloatTensor(100, 15).uniform_(0, 10)
-    rloglik, rm = evaluate_loglik(fpp, rseq, T=10., nf=10000) # [ batch_size, seq_len ]
-    floglik, fm = evaluate_loglik(fpp, fseq, T=10., nf=10000) # [ batch_size, seq_len ]
-
-    for i in range(10):
-        rx = np.where(rm[i])[0]
-        fx = np.where(fm[i])[0]
-        plt.plot(rx, rloglik[i, :len(rx)], c="r")
-        plt.plot(fx, floglik[i, :len(fx)], c="b")
-        
-    plt.show()
+    batch_size = 500
+    rseq = dl.data[:batch_size, :]                     # [ batch_size, seq_len, dsize ]
+    fseq = slstm(batch_size=batch_size, seq_len=50)    # [ batch_size, seq_len, dsize ]
+    fseq = truncatebyT(fseq)
+    # fseq = random_seqs(batch_size, seq_len=50, mu=15, T=10)
+    visualize_detection_statistics(fpp, rseq, fseq, seq_len=30)
 
     # # kernel function evaluation
     # kij   = evaluate_kernel(fpp)

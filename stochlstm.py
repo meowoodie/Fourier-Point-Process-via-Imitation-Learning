@@ -19,9 +19,9 @@ class StochasticLSTM(torch.nn.Module):
         self.Wif   = torch.nn.Parameter(torch.FloatTensor(dsize, hsize * 4).uniform_(0, 1))
         self.Whf   = torch.nn.Parameter(torch.FloatTensor(hsize, hsize * 4).uniform_(0, 1))
         self.h2z   = torch.nn.Sequential(
-            torch.nn.Linear(hsize, 100),
-            torch.nn.Softplus(), 
-            torch.nn.Linear(100, 2 * dsize),
+            torch.nn.Linear(hsize, 200),
+            torch.nn.Softplus(),  
+            torch.nn.Linear(200, 2 * dsize),
             torch.nn.Softplus())
 
     def forward(self, batch_size, seq_len):
@@ -146,7 +146,7 @@ def truncatebyT(X, T=10.):
 
 
 def advtrain(generator, classifier, dataloader, seq_len=100, K=1,
-    n_epoch=10, log_interval=10, glr=1e-4, clr=1e-4, log_callback=lambda x, y, z: None):
+    n_epoch=10, log_interval=10, glr=1e-2, clr=1e-4, log_callback=lambda x, y, z: None):
     """
     adversarial learning
 
@@ -162,16 +162,18 @@ def advtrain(generator, classifier, dataloader, seq_len=100, K=1,
         for i in range(len(dataloader)):
             dataloader.shuffle()
             # collect real and fake sequences
-            X    = dataloader[i]                             # real sequences [ batch, seq_len1, dszie ]
-            Xhat = generator(dataloader.batch_size, seq_len) # fake sequences [ batch, seq_len2, dszie ]
-            Xhat = truncatebyT(Xhat)                         # truncate generated sequence by time horizon T
+            X    = dataloader[i]                                 # real sequences [ batch, seq_len1, dszie ]
+            Xhat = generator(dataloader.batch_size, seq_len)     # fake sequences [ batch, seq_len2, dszie ]
+            Xhat = truncatebyT(Xhat)                             # truncate generated sequence by time horizon T
             
-            _, loglik    = classifier(X)                     # log-likelihood of real sequences [ batch ]
-            _, loglikhat = classifier(Xhat)                  # log-likelihood of real sequences [ batch ]
-            exploglik    = loglik.mean()
-            exploglikhat = loglikhat.mean()
-            closs        = exploglikhat - exploglik          # log-likelihood discrepancy
-            gloss        = exploglik - exploglikhat          # log-likelihood discrepancy
+            _, loglik    = classifier(X)                         # log-likelihood of real sequences [ batch ]
+            _, loglikhat = classifier(Xhat)                      # log-likelihood of real sequences [ batch ]
+            exploglik    = loglik.sum(1).mean()
+            exploglikhat = loglikhat.sum(1).mean()
+            # closs        = - torch.abs(exploglik - exploglikhat) # log-likelihood discrepancy
+            # gloss        = torch.abs(exploglik - exploglikhat)   # log-likelihood discrepancy
+            closs        = - exploglik
+            gloss        = - exploglikhat
             # average epoch loss 
             avgloglik.append(exploglik.item())
             avgloglikhat.append(exploglikhat.item())
@@ -185,8 +187,8 @@ def advtrain(generator, classifier, dataloader, seq_len=100, K=1,
             # train classifier
             classifier.train()        
             coptimizer.zero_grad()   
-            closs.backward(retain_graph=True)                # gradient descent
-            coptimizer.step()                                # update optimizer
+            closs.backward(retain_graph=True)                    # gradient descent
+            coptimizer.step()                                    # update optimizer
             # train generator
             for k in range(K):
                 generator.train()
@@ -224,5 +226,6 @@ if __name__ == "__main__":
 
     slstm = StochasticLSTM(dsize=dsize, hsize=hsize)
     seqs  = slstm(batch_size, seq_len)
+    
     print(seqs)
     print(truncatebyT(seqs))

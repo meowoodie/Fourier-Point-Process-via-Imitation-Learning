@@ -121,18 +121,16 @@ class FourierPointProcess(torch.nn.Module):
         - loglik: log-likelihood        [ batch_size ]
         """
         batch_size, seq_len, dsize = X.shape
-        # TODO: make this happen within self._mu
-        lam0 = torch.ones(batch_size) * self._mu()                # [ batch_size ]
-        lami = [ self._lambda(X[:, i, :].clone(), X[:, :i, :].clone()) 
-            for i in range(1, seq_len) ]
-        lam  = [ lam0 ] + lami
-        lam  = torch.stack(lam, dim=1)                            # [ batch_size, seq_len ]
+        lam     = [ self._lambda(X[:, i, :].clone(), X[:, :i, :].clone()) 
+            for i in range(seq_len) ]
+        lam     = torch.stack(lam, dim=1)                                 # [ batch_size, seq_len ]
         # log-likelihood
-        mask    = X[:, :, 0] > 0                                  # [ batch_size, seq_len ]
-        loglik1 = (lam * mask).sum(1)                             # [ batch_size ]
+        mask    = X[:, :, 0] > 0                                          # [ batch_size, seq_len ]
+        loglik1 = torch.log(lam) * mask                                   # [ batch_size, seq_len ]
+        loglik1 = torch.cat((loglik1, torch.zeros(batch_size, 1)), dim=1) # [ batch_size, seq_len + 1 ]
         loglik2 = - self._mu() * T * (2 * np.pi) ** (dsize - 1) \
-            if dsize > 1 else self._integral4temporal(X, T)       # [ batch_size ]
-        loglik  = loglik1 + loglik2                               # [ batch_size ]
+            if dsize > 1 else self._integral4temporal(X, T)               # [ batch_size, seq_len ]
+        loglik  = loglik1 + loglik2                                       # [ batch_size, seq_len + 1 ]
         return lam, loglik
 
     def _integral4temporal(self, X, T):
@@ -145,35 +143,35 @@ class FourierPointProcess(torch.nn.Module):
         batch_size, seq_len, dsize = X.shape
         assert dsize == 1, "dsize = %d is not 1." % dsize
         # first mask for shifting zero-paddings to T
-        mask1      = (X[:, :, 0] <= 0).float()                       # [ batch_size, seq_len ]
+        mask1      = (X[:, :, 0] <= 0).float()                            # [ batch_size, seq_len ]
         X[:, :, 0] = X[:, :, 0].clone() + mask1 * T
         # calculate the integral
         nf    = self.Womg.shape[1]
-        base  = self._mu() * T
-        x0    = torch.zeros(batch_size, 1, dsize)                    # [ batch_size, 1, 1 ]
-        xn    = torch.ones(batch_size, 1, dsize) * T                 # [ batch_size, 1, 1 ]
-        X     = torch.cat((x0, X, xn), dim=1)                        # [ batch_size, seq_len + 2, 1 ]
+        x0    = torch.zeros(batch_size, 1, dsize)                         # [ batch_size, 1, 1 ]
+        xn    = torch.ones(batch_size, 1, dsize) * T                      # [ batch_size, 1, 1 ]
+        X     = torch.cat((x0, X, xn), dim=1)                             # [ batch_size, seq_len + 2, 1 ]
         # second mask for masking integral sub-terms
-        m0    = torch.ones(batch_size, 1)                            # [ batch_size, 1 ]
-        mask2 = torch.cat((m0, (1. - mask1)), dim=1)                 # [ batch_size, seq_len + 1 ]
+        m0    = torch.ones(batch_size, 1)                                 # [ batch_size, 1 ]
+        mask2 = torch.cat((m0, (1. - mask1)), dim=1)                      # [ batch_size, seq_len + 1 ]
         intg0 = torch.zeros(batch_size, 1)
         intgi = []
         for i in range(1, seq_len + 1):
-            xi   = X[:, i, :].clone()                                # [ batch_size, 1 ]
-            xi1  = X[:, i+1, :].clone()                              # [ batch_size, 1 ]
-            ht   = X[:, :i, :].clone()                               # [ batch_size, seq_len=i, 1 ]
-            cos1 = torch.cos(- torch.matmul(ht, self.Womg))          # [ batch_size, seq_len=i, nf ]
-            cos1 = cos1.sum(1)                                       # [ batch_size, nf ]
-            cos2 = torch.cos((xi1 + xi) / 2)                         # [ batch_size, 1 ]
-            sin1 = torch.sin((xi1 - xi) / 2)                         # [ batch_size, 1 ]
-            sinc = 2 * torch.exp(self.Womg) / self.Womg              # [ 1, nf ]
-            sinc = sinc.squeeze_(0)                                  # [ nf ]
-            intg = (cos1 * sinc).mean(1).unsqueeze_(1) * cos2 * sin1 # [ batch_size, 1 ]
+            xi   = X[:, i, :].clone()                                     # [ batch_size, 1 ]
+            xi1  = X[:, i+1, :].clone()                                   # [ batch_size, 1 ]
+            ht   = X[:, :i, :].clone()                                    # [ batch_size, seq_len=i, 1 ]
+            cos1 = torch.cos(- torch.matmul(ht, self.Womg))               # [ batch_size, seq_len=i, nf ]
+            cos1 = cos1.sum(1)                                            # [ batch_size, nf ]
+            cos2 = torch.cos((xi1 + xi) / 2)                              # [ batch_size, 1 ]
+            sin1 = torch.sin((xi1 - xi) / 2)                              # [ batch_size, 1 ]
+            sinc = 2 * torch.exp(self.Womg) / self.Womg                   # [ 1, nf ]
+            sinc = sinc.squeeze_(0)                                       # [ nf ]
+            intg = (cos1 * sinc).mean(1).unsqueeze_(1) * cos2 * sin1      # [ batch_size, 1 ]
             intgi.append(intg)
         intgs = [ intg0 ] + intgi
-        intgs = torch.stack(intgs, dim=1).squeeze_() * mask2         # [ batch_size, seq_len + 1 ]
-        intgs = base + intgs.sum(1) / nf                             # [ batch_size ]
-        return - intgs
+        intgs = torch.stack(intgs, dim=1).squeeze_() * mask2              # [ batch_size, seq_len + 1 ]
+        base  = self._mu() * (X[:, 1:, 0].clone() - X[:, :-1, 0].clone()) # [ batch_size, seq_len + 1 ]
+        intgs = base + intgs / nf                                         # [ batch_size, seq_len + 1 ]
+        return - intgs                                                    # [ batch_size, seq_len + 1 ]
 
     def _mu(self):
         """
@@ -196,13 +194,13 @@ def train(model, dataloader,
         for i in range(len(dataloader)):
             X = dataloader[i]
             model.train()
-            optimizer.zero_grad()       # init optimizer (set gradient to be zero)
-            _, loglik = model(X)        # inference
-            loss      = - loglik.mean() # negative log-likelihood
+            optimizer.zero_grad()              # init optimizer (set gradient to be zero)
+            _, loglik = model(X)               # inference
+            loss      = - loglik.sum(1).mean() # negative log-likelihood
             avgloss.append(loss.item())
             logloss.append(loss.item())
-            loss.backward()             # gradient descent
-            optimizer.step()            # update optimizer
+            loss.backward()                    # gradient descent
+            optimizer.step()                   # update optimizer
             if i % log_interval == 0 and i != 0:
                 print("[%s] Train batch: %d\tLoss: %.3f" % (arrow.now(), i, sum(logloss) / log_interval))
                 # callback 

@@ -35,23 +35,31 @@ def evaluate_lambda(model, H, T=10., ngrid=100, nf=10000):
         lam.append(lami.detach().numpy())
     return np.array(lam)
 
-def evaluate_loglik(model, H, T=10., nf=10000):
+def evaluate_loglik(model, X, T=10., nf=10000):
     """
     evaluate lambda function in point process function
 
     Args:
-    - H: history points [ batch_size, seq_len, dszie ]
+    - X: history points [ batch_size, seq_len, dszie ]
     """
-    print("evaluation log-likelihood")
-    mask    = (H[:, 1:, 0].clone() > 0).numpy()
-    seq_len = H.shape[1]
-    logliks = []
-    for i in tqdm(range(1, seq_len)):
-        X         = H[:, :i, :].clone()  # [ batch_size, i, dsize ]
-        _, loglik = model(X, nf=nf, T=T) # [ batch_size ]
-        logliks.append(loglik)           
-    logliks = torch.stack(logliks, dim=1).detach().numpy()
-    return logliks, mask
+    _, loglik     = model(X, nf=nf, T=T) # [ batch_size, seq_len + 1 ]
+    mask          = (loglik != 0).numpy()[:, :-1]
+    cumsum_loglik = torch.cumsum(loglik, dim=1)[:, :-1]
+    return cumsum_loglik.detach().numpy(), mask
+
+def random_seqs(batch_size, seq_len, mu, T):
+    """
+    generate random sequences
+    """
+    seqs = np.zeros((batch_size, seq_len))
+    Ns   = np.random.poisson(size=batch_size, lam=mu)
+    for i in range(batch_size):
+        seq             = np.random.uniform(0, T, Ns[i])
+        seq.sort()
+        seqs[i, :Ns[i]] = seq
+    seqs = torch.FloatTensor(seqs).unsqueeze_(2)
+    return seqs
+
 
 def log_callback(model, dataloader):
     """callback function invoked at every log interval"""

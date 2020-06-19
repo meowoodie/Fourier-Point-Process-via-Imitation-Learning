@@ -22,7 +22,7 @@ if __name__ == "__main__":
     nsize = 10 # noise dimension
     fsize = 20 # fourier feature dimension
     dsize = 1  # data dimension
-    hsize = 10 # hidden state dimension
+    hsize = 50 # hidden state dimension
     fpp   = FourierPointProcess(nsize, fsize, dsize)
     slstm = StochasticLSTM(dsize, hsize)
 
@@ -30,8 +30,8 @@ if __name__ == "__main__":
     # train(fpp, dl, n_epoch=10, log_interval=25, lr=1e-4, log_callback=log_callback)
 
     # learn fpp and slstm by adversarial learning
-    recloglik, recloglikhat = advtrain(slstm, fpp, dl, seq_len=50, K=10,
-        n_epoch=2, log_interval=20, glr=1e-2, clr=1e-5, 
+    recloglik, recloglikhat = advtrain(slstm, fpp, dl, seq_len=50, K=2,
+        n_epoch=5, log_interval=20, glr=1e-5, clr=1e-4, 
         log_callback=lambda x, y, z: None)
     
     np.save("loginfo/loglik.npy", recloglik)
