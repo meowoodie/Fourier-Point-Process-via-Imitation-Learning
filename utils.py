@@ -42,9 +42,10 @@ def evaluate_loglik(model, X, T=10., nf=10000):
     Args:
     - X: history points [ batch_size, seq_len, dszie ]
     """
-    _, loglik     = model(X, nf=nf, T=T) # [ batch_size, seq_len + 1 ]
-    mask          = (loglik != 0).numpy()[:, :-1]
-    cumsum_loglik = torch.cumsum(loglik, dim=1)[:, :-1]
+    _, loglik     = model(X, nf=nf, T=T)                # [ batch_size, seq_len + 1 ]
+    mask          = (loglik != 0).numpy()[:, :-1]       # [ batch_size, seq_len ]
+    cumsum_loglik = torch.cumsum(loglik, dim=1)[:, :-1] # [ batch_size, seq_len ]
+
     return cumsum_loglik.detach().numpy(), mask
 
 def random_seqs(batch_size, seq_len, mu, T):
@@ -56,7 +57,7 @@ def random_seqs(batch_size, seq_len, mu, T):
     for i in range(batch_size):
         seq             = np.random.uniform(0, T, Ns[i])
         seq.sort()
-        seqs[i, :Ns[i]] = seq
+        seqs[i, :Ns[i]] = seq[:seq_len]
     seqs = torch.FloatTensor(seqs).unsqueeze_(2)
     return seqs
 

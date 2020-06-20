@@ -202,10 +202,10 @@ def train(model, dataloader,
             loss.backward()                    # gradient descent
             optimizer.step()                   # update optimizer
             if i % log_interval == 0 and i != 0:
-                print("[%s] Train batch: %d\tLoss: %.3f" % (arrow.now(), i, sum(logloss) / log_interval))
+                print("[%s] Train batch: %d\tLoglik: %.3f" % (arrow.now(), i, - sum(logloss) / log_interval))
                 # callback 
                 log_callback(model, dataloader)
                 logloss = []
         
         # log loss
-        print("[%s] Train epoch: %d\tAvg loss: %.3f" % (arrow.now(), e, sum(avgloss) / len(dataloader)))
+        print("[%s] Train epoch: %d\tAvg Loglik: %.3f" % (arrow.now(), e, - sum(avgloss) / len(dataloader)))

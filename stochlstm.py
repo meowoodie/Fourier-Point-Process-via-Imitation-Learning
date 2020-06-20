@@ -158,9 +158,9 @@ def advtrain(generator, classifier, dataloader, seq_len=100, K=1,
     for e in range(n_epoch):
         avgloglik, avgloglikhat  = [], []
         logloglik, logloglikehat = [], []
-        # dataloader.shuffle()
+        dataloader.shuffle()
         for i in range(len(dataloader)):
-            dataloader.shuffle()
+            # dataloader.shuffle()
             # collect real and fake sequences
             X    = dataloader[i]                                 # real sequences [ batch, seq_len1, dszie ]
             Xhat = generator(dataloader.batch_size, seq_len)     # fake sequences [ batch, seq_len2, dszie ]

@@ -27,15 +27,16 @@ if __name__ == "__main__":
     slstm = StochasticLSTM(dsize, hsize)
 
     # # learn fpp by MLE
-    # train(fpp, dl, n_epoch=10, log_interval=25, lr=1e-4, log_callback=log_callback)
+    # train(fpp, dl, n_epoch=10, log_interval=20, lr=1e-4) # , log_callback=log_callback)
+    # torch.save(fpp.state_dict(), "savedmodels/fpp-v2.pt")
 
     # learn fpp and slstm by adversarial learning
     recloglik, recloglikhat = advtrain(slstm, fpp, dl, seq_len=50, K=2,
-        n_epoch=5, log_interval=20, glr=1e-5, clr=1e-4, 
-        log_callback=lambda x, y, z: None)
+        n_epoch=3, log_interval=20, glr=1e-7, clr=1e-5)
+        # log_callback=lambda x, y, z: None)
     
-    np.save("loginfo/loglik.npy", recloglik)
-    np.save("loginfo/loglikhat.npy", recloglikhat)
+    np.save("loginfo/adv-loglik-v2.npy", recloglik)
+    np.save("loginfo/adv-loglikhat-v2.npy", recloglikhat)
 
-    torch.save(fpp.state_dict(), "savedmodels/fpp.pt")
-    torch.save(slstm.state_dict(), "savedmodels/slstm.pt")
+    torch.save(fpp.state_dict(), "savedmodels/adv-fpp-v2.pt")
+    torch.save(slstm.state_dict(), "savedmodels/adv-slstm-v2.pt")
