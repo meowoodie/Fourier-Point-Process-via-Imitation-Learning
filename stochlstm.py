@@ -20,7 +20,7 @@ class StochasticLSTM(torch.nn.Module):
         self.Whf   = torch.nn.Parameter(torch.FloatTensor(hsize, hsize * 4).uniform_(0, 1))
         self.h2z   = torch.nn.Sequential(
             torch.nn.Linear(hsize, 200),
-            torch.nn.Softplus(),  
+            torch.nn.Softplus(),
             torch.nn.Linear(200, 2 * dsize),
             torch.nn.Softplus())
 
@@ -158,9 +158,9 @@ def advtrain(generator, classifier, dataloader, seq_len=100, K=1,
     for e in range(n_epoch):
         avgloglik, avgloglikhat  = [], []
         logloglik, logloglikehat = [], []
-        dataloader.shuffle()
+        # dataloader.shuffle()
         for i in range(len(dataloader)):
-            # dataloader.shuffle()
+            dataloader.shuffle()
             # collect real and fake sequences
             X    = dataloader[i]                                 # real sequences [ batch, seq_len1, dszie ]
             Xhat = generator(dataloader.batch_size, seq_len)     # fake sequences [ batch, seq_len2, dszie ]

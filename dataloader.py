@@ -9,8 +9,8 @@ class Dataloader4TemporalOnly(torch.utils.data.Dataset):
     """
     Data loader for sequential point data
     """
-    def __init__(self, path, batch_size=20):
-        self.data       = torch.from_numpy(np.expand_dims(np.load(path), -1)).float() * 10
+    def __init__(self, data, batch_size=20):
+        self.data       = torch.from_numpy(data).float()
         self.n_seq      = self.data.shape[0]
         self.seq_len    = self.data.shape[1] 
         self.batch_size = batch_size
