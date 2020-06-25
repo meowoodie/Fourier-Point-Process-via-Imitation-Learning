@@ -17,7 +17,9 @@ if __name__ == "__main__":
 
     torch.manual_seed(0)
 
-    dl = Dataloader4TemporalOnly(path="data/hawkes_data.npy", batch_size=50)
+    data  = np.expand_dims(np.load("data/hawkes_data.npy"), -1) 
+
+    dl = Dataloader4TemporalOnly(data, batch_size=50)
 
     nsize = 10 # noise dimension
     fsize = 20 # fourier feature dimension
@@ -26,14 +28,13 @@ if __name__ == "__main__":
     fpp   = FourierPointProcess(nsize, fsize, dsize)
     slstm = StochasticLSTM(dsize, hsize)
 
-    # # learn fpp by MLE
-    # train(fpp, dl, n_epoch=10, log_interval=20, lr=1e-4) # , log_callback=log_callback)
-    # torch.save(fpp.state_dict(), "savedmodels/fpp-v2.pt")
+    # learn fpp by MLE
+    train(fpp, dl, n_epoch=10, log_interval=20, lr=1e-4) # , log_callback=log_callback)
+    torch.save(fpp.state_dict(), "savedmodels/fpp-v2.pt")
 
     # learn fpp and slstm by adversarial learning
     recloglik, recloglikhat = advtrain(slstm, fpp, dl, seq_len=50, K=2,
         n_epoch=3, log_interval=20, glr=1e-7, clr=1e-5)
-        # log_callback=lambda x, y, z: None)
     
     np.save("loginfo/adv-loglik-v2.npy", recloglik)
     np.save("loginfo/adv-loglikhat-v2.npy", recloglikhat)
