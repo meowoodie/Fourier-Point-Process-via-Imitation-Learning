@@ -28,9 +28,9 @@ if __name__ == "__main__":
     fpp   = FourierPointProcess(nsize, fsize, dsize)
     slstm = StochasticLSTM(dsize, hsize)
 
-    # learn fpp by MLE
-    train(fpp, dl, n_epoch=10, log_interval=20, lr=1e-4) # , log_callback=log_callback)
-    torch.save(fpp.state_dict(), "savedmodels/fpp-v2.pt")
+    # # learn fpp by MLE
+    # train(fpp, dl, n_epoch=10, log_interval=20, lr=1e-4) # , log_callback=log_callback)
+    # torch.save(fpp.state_dict(), "savedmodels/fpp-v2.pt")
 
     # learn fpp and slstm by adversarial learning
     recloglik, recloglikhat = advtrain(slstm, fpp, dl, seq_len=50, K=2,

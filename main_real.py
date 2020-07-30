@@ -40,9 +40,9 @@ if __name__ == "__main__":
 
     # data = data[idx, 1:, :1] * 10
     # np.save("data/upt_macy_data.npy", data)
-    data  = np.load("data/upt_macy_data.npy", data)
+    data  = np.load("data/upt_macy_data.npy")
 
-    dl    = Dataloader4TemporalOnly(data, batch_size=20) 
+    dl    = Dataloader4TemporalOnly(data, batch_size=50) 
 
     nsize = 10 # noise dimension
     fsize = 20 # fourier feature dimension
